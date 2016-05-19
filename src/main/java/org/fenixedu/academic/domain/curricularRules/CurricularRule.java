@@ -19,10 +19,12 @@
 package org.fenixedu.academic.domain.curricularRules;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 import org.fenixedu.academic.domain.ExecutionSemester;
 import org.fenixedu.academic.domain.ExecutionYear;
 import org.fenixedu.academic.domain.curricularRules.executors.RuleResult;
+import org.fenixedu.academic.domain.curricularRules.executors.ruleExecutors.CurricularRuleExecutor;
 import org.fenixedu.academic.domain.curricularRules.executors.ruleExecutors.CurricularRuleExecutorFactory;
 import org.fenixedu.academic.domain.curricularRules.executors.verifyExecutors.VerifyRuleLevel;
 import org.fenixedu.academic.domain.degreeStructure.Context;
@@ -35,8 +37,12 @@ import org.fenixedu.academic.domain.util.LogicOperator;
 import org.fenixedu.academic.dto.GenericPair;
 import org.fenixedu.bennu.core.domain.Bennu;
 import org.joda.time.YearMonthDay;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class CurricularRule extends CurricularRule_Base implements ICurricularRule {
+
+    static private final Logger logger = LoggerFactory.getLogger(CurricularRule.class);
 
     protected CurricularRule() {
         super();
@@ -130,8 +136,8 @@ public abstract class CurricularRule extends CurricularRule_Base implements ICur
 
     @Override
     public DegreeModule getDegreeModuleToApplyRule() {
-        return belongsToCompositeRule() ? getParentCompositeRule().getDegreeModuleToApplyRule() : super
-                .getDegreeModuleToApplyRule();
+        return belongsToCompositeRule() ? getParentCompositeRule()
+                .getDegreeModuleToApplyRule() : super.getDegreeModuleToApplyRule();
     }
 
     @Override
@@ -150,8 +156,8 @@ public abstract class CurricularRule extends CurricularRule_Base implements ICur
 
     @Override
     public boolean isValid(ExecutionSemester executionSemester) {
-        return (getBegin().isBeforeOrEquals(executionSemester) && (getEnd() == null || getEnd()
-                .isAfterOrEquals(executionSemester)));
+        return (getBegin().isBeforeOrEquals(executionSemester)
+                && (getEnd() == null || getEnd().isAfterOrEquals(executionSemester)));
     }
 
     @Override
@@ -180,9 +186,33 @@ public abstract class CurricularRule extends CurricularRule_Base implements ICur
         return true;
     }
 
+    static private Supplier<CurricularRuleExecutorFinder> CURRICULAR_RULE_EXECUTOR_FINDER =
+            () -> new CurricularRuleExecutorFinder() {
+
+                @Override
+                public CurricularRuleExecutor find(final ICurricularRule input) {
+                    return CurricularRuleExecutorFactory.findExecutor(input);
+                }
+            };
+
     @Override
-    public RuleResult evaluate(final IDegreeModuleToEvaluate sourceDegreeModuleToEvaluate, final EnrolmentContext enrolmentContext) {
-        return CurricularRuleExecutorFactory.findExecutor(this).execute(this, sourceDegreeModuleToEvaluate, enrolmentContext);
+    public CurricularRuleExecutorFinder getCurricularRuleExecutorFinder() {
+        return CURRICULAR_RULE_EXECUTOR_FINDER.get();
+    }
+
+    static public void setCurricularRuleExecutorFinder(final Supplier<CurricularRuleExecutorFinder> input) {
+        if (input != null && input.get() != null) {
+            CURRICULAR_RULE_EXECUTOR_FINDER = input;
+        } else {
+            logger.error("Could not set CURRICULAR_RULE_EXECUTOR_FINDER to null");
+        }
+    }
+
+    @Override
+    public RuleResult evaluate(final IDegreeModuleToEvaluate sourceDegreeModuleToEvaluate,
+            final EnrolmentContext enrolmentContext) {
+
+        return getCurricularRuleExecutorFinder().find(this).execute(this, sourceDegreeModuleToEvaluate, enrolmentContext);
     }
 
     @Override
@@ -196,11 +226,12 @@ public abstract class CurricularRule extends CurricularRule_Base implements ICur
     abstract public boolean isLeaf();
 
     abstract public boolean isRulePreventingAutomaticEnrolment();
-    
+
     @Override
     abstract public List<GenericPair<Object, Boolean>> getLabel();
 
-    static public CurricularRule createCurricularRule(final LogicOperator logicOperator, final CurricularRule... curricularRules) {
+    static public CurricularRule createCurricularRule(final LogicOperator logicOperator,
+            final CurricularRule... curricularRules) {
         switch (logicOperator) {
         case AND:
             return new AndRule(curricularRules);

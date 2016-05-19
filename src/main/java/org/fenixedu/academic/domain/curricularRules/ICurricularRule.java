@@ -24,6 +24,7 @@ import java.util.List;
 import org.fenixedu.academic.domain.ExecutionSemester;
 import org.fenixedu.academic.domain.ExecutionYear;
 import org.fenixedu.academic.domain.curricularRules.executors.RuleResult;
+import org.fenixedu.academic.domain.curricularRules.executors.ruleExecutors.CurricularRuleExecutor;
 import org.fenixedu.academic.domain.curricularRules.executors.verifyExecutors.VerifyRuleExecutor;
 import org.fenixedu.academic.domain.curricularRules.executors.verifyExecutors.VerifyRuleLevel;
 import org.fenixedu.academic.domain.degreeStructure.Context;
@@ -74,10 +75,19 @@ public interface ICurricularRule {
 
     public boolean isActive();
 
-    public RuleResult evaluate(final IDegreeModuleToEvaluate sourceDegreeModuleToEvaluate, final EnrolmentContext enrolmentContext);
+    static public interface CurricularRuleExecutorFinder {
+
+        CurricularRuleExecutor find(final ICurricularRule input);
+    }
+
+    public CurricularRuleExecutorFinder getCurricularRuleExecutorFinder();
+
+    public RuleResult evaluate(final IDegreeModuleToEvaluate sourceDegreeModuleToEvaluate,
+            final EnrolmentContext enrolmentContext);
 
     public RuleResult verify(final VerifyRuleLevel verifyRuleLevel, final EnrolmentContext enrolmentContext,
             final DegreeModule degreeModuleToVerify, final CourseGroup parentCourseGroup);
 
     public VerifyRuleExecutor createVerifyRuleExecutor();
+
 }

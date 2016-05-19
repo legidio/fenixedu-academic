@@ -71,7 +71,9 @@ public enum CurricularRuleType {
 
     SENIOR_STATUTE_SCOPE,
 
-    ASSERT_UNIQUE_CURRICULAR_COURSE_ENROLMENT_FOR_PERIOD;
+    ASSERT_UNIQUE_CURRICULAR_COURSE_ENROLMENT_FOR_PERIOD,
+    
+    CUSTOM;
 
     public String getName() {
         return name();

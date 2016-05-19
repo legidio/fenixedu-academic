@@ -18,9 +18,12 @@
  */
 package org.fenixedu.academic.domain.curricularRules;
 
+import java.util.function.Supplier;
+
 import org.fenixedu.academic.domain.ExecutionSemester;
 import org.fenixedu.academic.domain.ExecutionYear;
 import org.fenixedu.academic.domain.curricularRules.executors.RuleResult;
+import org.fenixedu.academic.domain.curricularRules.executors.ruleExecutors.CurricularRuleExecutor;
 import org.fenixedu.academic.domain.curricularRules.executors.ruleExecutors.CurricularRuleExecutorFactory;
 import org.fenixedu.academic.domain.curricularRules.executors.verifyExecutors.VerifyRuleLevel;
 import org.fenixedu.academic.domain.degreeStructure.Context;
@@ -29,8 +32,12 @@ import org.fenixedu.academic.domain.degreeStructure.DegreeModule;
 import org.fenixedu.academic.domain.enrolment.EnrolmentContext;
 import org.fenixedu.academic.domain.enrolment.IDegreeModuleToEvaluate;
 import org.joda.time.YearMonthDay;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 abstract public class CurricularRuleNotPersistent implements ICurricularRule {
+
+    static private final Logger logger = LoggerFactory.getLogger(CurricularRuleNotPersistent.class);
 
     @Override
     public boolean equals(Object obj) {
@@ -87,8 +94,8 @@ abstract public class CurricularRuleNotPersistent implements ICurricularRule {
 
     @Override
     public boolean isValid(ExecutionSemester executionSemester) {
-        return (getBegin().isBeforeOrEquals(executionSemester) && (getEnd() == null || getEnd()
-                .isAfterOrEquals(executionSemester)));
+        return (getBegin().isBeforeOrEquals(executionSemester)
+                && (getEnd() == null || getEnd().isAfterOrEquals(executionSemester)));
     }
 
     @Override
@@ -111,9 +118,32 @@ abstract public class CurricularRuleNotPersistent implements ICurricularRule {
         return getEnd() == null || getEnd().containsDay(new YearMonthDay());
     }
 
+    static private Supplier<CurricularRuleExecutorFinder> CURRICULAR_RULE_EXECUTOR_FINDER =
+            () -> new CurricularRuleExecutorFinder() {
+
+                @Override
+                public CurricularRuleExecutor find(final ICurricularRule input) {
+                    return CurricularRuleExecutorFactory.findExecutor(input);
+                }
+            };
+
+    @Override
+    public CurricularRuleExecutorFinder getCurricularRuleExecutorFinder() {
+        return CURRICULAR_RULE_EXECUTOR_FINDER.get();
+    }
+
+    static public void setCurricularRuleExecutorFinder(final Supplier<CurricularRuleExecutorFinder> input) {
+        if (input != null && input.get() != null) {
+            CURRICULAR_RULE_EXECUTOR_FINDER = input;
+        } else {
+            logger.error("Could not set CURRICULAR_RULE_EXECUTOR_FINDER to null");
+        }
+    }
+
     @Override
     public RuleResult evaluate(final IDegreeModuleToEvaluate sourceDegreeModuleToEvaluate, EnrolmentContext enrolmentContext) {
-        return CurricularRuleExecutorFactory.findExecutor(this).execute(this, sourceDegreeModuleToEvaluate, enrolmentContext);
+
+        return getCurricularRuleExecutorFinder().find(this).execute(this, sourceDegreeModuleToEvaluate, enrolmentContext);
     }
 
     @Override
